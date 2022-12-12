@@ -1,0 +1,119 @@
+<?xml version="1.0"?>
+
+
+
+
+
+<launch>
+
+  <arg name="limited" default="false" doc="If true, limits joint range [-PI, PI] on all joints." />
+  <arg name="paused" default="false" doc="Starts gazebo in paused mode" />
+  <arg name="gui" default="true" doc="Starts gazebo gui" />
+
+  <!-- startup simulated world -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find ur3_driver)/worlds/finalend.world"/>
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="gui" value="$(arg gui)"/>
+  </include>
+
+  
+  
+  <group ns="robot">
+    <!-- send robot urdf to param server -->
+    
+    <arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface" />
+
+    <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro --inorder '$(find ur_description)/urdf/ur3_robot.urdf.xacro' transmission_hw_interface:=$(arg transmission_hw_interface) ns:=robot" />
+    <param if="$(arg limited)" name="robot_description" command="$(find xacro)/xacro --inorder '$(find ur_description)/urdf/ur3_joint_limited_robot.urdf.xacro' transmission_hw_interface:=$(arg transmission_hw_interface) ns:=robot"  />
+
+    <node name="spawn_base_plate" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur_description)/urdf/base_plate.urdf -urdf -model plate -x -0.15 -y 0.15" respawn="false" output="screen" />
+
+    <!-- push robot_description to factory and spawn robot in gazebo -->
+    <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model robot -x -0.15 -y 0.15 -z 0.01" respawn="false" output="screen" />
+
+
+    <!-- Robot state publisher -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+        <param name="publish_frequency" type="double" value="50.0" />
+        <param name="tf_prefix" type="string" value="robot" />
+    </node>
+
+    <!-- Fake Calibration -->
+    <node pkg="rostopic" type="rostopic" name="fake_joint_calibration"
+            args="pub /calibrated std_msgs/Bool true" />
+    
+    <!-- joint_state_controller -->
+    <rosparam file="$(find ur_gazebo)/controller/joint_state_controller.yaml" command="load"/>
+    <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager" args="spawn joint_state_controller" respawn="false" output="screen"/>
+
+
+
+    <!-- start this controller -->
+    <rosparam file="$(find ur_gazebo)/controller/arm_controller_ur3.yaml" command="load"/>
+    <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager" args="spawn arm_controller" respawn="false" output="screen"/>
+
+    <!-- load other controllers -->
+    <node name="ros_control_controller_manager" pkg="controller_manager" type="controller_manager" respawn="false" output="screen" args="load joint_group_position_controller" />
+  </group>
+
+  <group ns="robot2">
+    <!-- send robot urdf to param server -->
+    
+    <arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface" />
+
+    <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro --inorder '$(find ur_description)/urdf/ur3_robot_2.urdf.xacro' transmission_hw_interface:=$(arg transmission_hw_interface) ns:=robot2" />
+    <param if="$(arg limited)" name="robot_description" command="$(find xacro)/xacro --inorder '$(find ur_description)/urdf/ur3_joint_limited_robot.urdf.xacro' transmission_hw_interface:=$(arg transmission_hw_interface) ns:=robot2"  />
+
+    <node name="spawn_base_plate" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur_description)/urdf/base_plate.urdf -urdf -model plate2 -x 2.35 -y -1.35" respawn="false" output="screen" />
+
+    <!-- push robot_description to factory and spawn robot in gazebo -->
+    <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model robot2 -x 2.35 -y -1.35 -z 0.01" respawn="false" output="screen" />
+
+    <!-- Robot state publisher -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+        <param name="publish_frequency" type="double" value="50.0" />
+        <param name="tf_prefix" type="string" value="robot2" />
+    </node>
+
+    <!-- Fake Calibration -->
+    <node pkg="rostopic" type="rostopic" name="fake_joint_calibration"
+            args="pub /calibrated std_msgs/Bool true" />
+    
+    <!-- joint_state_controller -->
+    <rosparam file="$(find ur_gazebo)/controller/joint_state_controller.yaml" command="load"/>
+    <node name="joint_state_controller_spawner" pkg="controller_manager" type="controller_manager" args="spawn joint_state_controller" respawn="false" output="screen"/>
+
+
+    <!-- start this controller -->
+    <rosparam file="$(find ur_gazebo)/controller/arm_controller_ur3.yaml" command="load"/>
+    <node name="arm_controller_spawner" pkg="controller_manager" type="controller_manager" args="spawn arm_controller" respawn="false" output="screen"/>
+
+    <!-- load other controllers -->
+    <node name="ros_control_controller_manager" pkg="controller_manager" type="controller_manager" respawn="false" output="screen" args="load joint_group_position_controller" />
+  </group>
+
+
+
+  <!-- <node name="spawn_block" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur_description)/urdf/block.urdf -urdf -model block" /> -->
+
+  <node name="spawn_camera" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur_description)/urdf/camera.urdf -urdf -model camera -x 0.29 -y 0.105 -z 1.65" />
+
+
+
+	<node name="ur3_gazebo_driver_1" pkg="ur3_driver" type="ur3_gazebo_driver.py" output="screen">
+	</node>
+   <!--<include file="$(find smartcar_description)/launch/xacro/smartcar_gazebo.launch"/>
+   -->
+  <!-- <include file="$(find diff_wheeled_robot_gazebo)/launch/diff_wheeled_gazebo.launch"/> -->
+ 
+ <param name="robot_description2" command="$(find xacro)/xacro $(find diff_wheeled_robot_gazebo)/urdf/diff_wheeled_robot.xacro" />
+
+
+  <!-- Run a python script to the send a service call to gazebo_ros to spawn a URDF robot -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+	args="-urdf -model diff_wheeled_robot -param robot_description2 -x 1.7 -y -2.1 -z 0"/> 
+
+  <include file="$(find ur3_driver)/launch/ece470_vision_driver.launch"/>
+
+</launch>
